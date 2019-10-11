@@ -17,7 +17,6 @@ The dataset contains 1,384,617 observations of 131,209 unique users, where each 
 library(tidyverse)
 library(grid)
 library(gridExtra)
-library(arsenal)
 library(data.table)
 library(p8105.datasets)
 
@@ -57,26 +56,26 @@ bi_df = filter(instacart, aisle == "baking ingredients")
 bi_fre = count(bi_df, product_name)
 bi_fre$aisle = "baking ingredients"
 bi_fre = arrange(bi_fre, desc(n))
-bi_top3 = bi_fre[1:3,]
+bi_top3 = bi_fre[1:3, ]
 # create a tibble for dog food care frequency counts and select top 3
 dfc_df = filter(instacart, aisle == "dog food care")
 dfc_fre = count(dfc_df, product_name)
 dfc_fre$aisle = "dog food care"
 dfc_fre = arrange(dfc_fre, desc(n))
-dfc_top3 = dfc_fre[1:3,]
+dfc_top3 = dfc_fre[1:3, ]
 # create a tibble for packaged vegetables fruits frequency counts and select top 3
 pvf_df = filter(instacart,aisle == "packaged vegetables fruits")
 pvf_fre = count(pvf_df, product_name)
 pvf_fre$aisle = "packaged vegetables fruits"
 pvf_fre = arrange(pvf_fre, desc(n))
-pvf_top3 = pvf_fre[1:3,]
+pvf_top3 = pvf_fre[1:3, ]
 # merge vertically and reorder columns
 top3_df = rbind(bi_top3, dfc_top3, pvf_top3)
 top3_df = top3_df[c(3,1,2)]
 # create subsets for three aisles
-d1 = top3_df[1:3,]
-d2 = top3_df[4:6,]
-d3 = top3_df[7:9,]
+d1 = top3_df[1:3, ]
+d2 = top3_df[4:6, ]
+d3 = top3_df[7:9, ]
 # create three separate gridtables for each aisle
 g1 = tableGrob(d1)
 g2 = tableGrob(d2)
@@ -173,6 +172,70 @@ ggplot(data = brfss_tp, aes(x = response, y = data_value)) +
   )
 ```
 
+## Problem 3
+```{r Problem3P1}
+# read data from accel_data.csv
+accel_df = 
+  read_csv("./accel_data.csv") %>%
+  janitor::clean_names() %>% 
+  # include a weekday vs weekend variable
+  mutate(weekday_weekend = case_when(day == "Monday" ~ "Weekday",
+                                     day == "Tuesday" ~ "Weekday",
+                                     day == "Wednesday" ~ "Weekday",
+                                     day == "Thursday" ~ "Weekday",
+                                     day == "Friday" ~ "Weekday",
+                                     day == "Saturday" ~ "Weekend",
+                                     day == "Sunday" ~ "Weekend"))
+# encode day with factor
+accel_df$day = as.factor(accel_df$day)
+accel_df$day = factor(accel_df$day, levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+# order by week and day
+accel_df = arrange(accel_df, week, day)
+```
+There are 35 observations of 1444 variables. The 1444 variables include: year, day_id, day (identifies day of week), weekday_weekend (weekday vs weekend) and 1440 variables for activity counts of each minute in a 24-hour day starting at midnight.
+
+```{r Problem3P2}
+# important to create the column before the for loop
+accel_df$total_activity = NA
+for (rowIdx in 1:nrow(accel_df)) {
+   accel_df[rowIdx, "total_activity"] = sum(accel_df[rowIdx, 4:1443])
+}
+# select variables to include in the table
+accel_tb = select(accel_df, week, day_id, day, weekday_weekend, total_activity)
+grid.table(accel_tb[1:15, ], rows = NULL)
+grid.newpage()
+grid.table(accel_tb[16:30, ], rows = NULL)
+grid.newpage()
+grid.table(accel_tb[31:nrow(accel_tb), ], rows = NULL)
+```
+
+```{r Problem3P3}
+accel_p3 = 
+  pivot_longer(
+    accel_df, 
+    activity_1:activity_1440,
+    names_to = "time",
+    names_prefix = "activity_",
+    values_to = "activity")
+accel_p3$time = as.numeric(accel_p3$time)
+# multiple groups with one aesthetic
+ggplot(data = accel_p3, aes(x = time, y = activity)) + 
+# the group aesthetic maps a different line for each subject
+  geom_line(aes(group = day_id)) +
+  geom_line(aes(colour = factor(day)))  +
+# title, label and caption
+  labs(
+    title = "24-hour activity time courses for each day",
+    x = "Time",
+    y = "Activity",
+    caption = "Data from p8105.datasets"
+  ) +
+# adjust x-axis scale
+  scale_x_continuous(breaks = seq(0, 1440, 60)) +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+Based on this graph, we can conclude that the subject generally has less physical activity on Saturdays. From this graph, we can also identify three peak hours for the subject's physical activity, which are 11:00 ~ 12:00, 16:00 ~ 17:00 and 20:00 ~ 22:00. The most intensive physical activity occurs on a Tuesday with value greater than 8750.
 
 
 
